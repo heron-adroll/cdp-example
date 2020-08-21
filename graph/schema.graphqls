@@ -1,0 +1,68 @@
+
+type Advertisable {
+  eid: String!
+  accounts(talEID: String, tagEID: String): TalAccountSource
+}
+
+type Account {
+  domain: String
+}
+
+type TalAccountSource {
+  accounts: [Account]
+}
+
+# CompanyAttributes service
+type CompanyAttributes {
+  industry: String
+}
+
+extend type Account {
+  companyAttributes: CompanyAttributes
+}
+
+type AttributesAccountSource {
+  accounts: [Account]
+}
+
+input DatFilters {
+  companySize: Float
+}
+
+extend type TalAccountSource {
+  accountsByAttributes(datFilters: DatFilters): AttributesAccountSource
+}
+
+extend type IntentAccountSource {
+  accountsByAttributes(datFilters: DatFilters): AttributesAccountSource
+}
+
+
+# Intent Service
+type IntentSurgeRecords {
+  topic: String
+}
+
+extend type Account {
+  surgeRecords: IntentSurgeRecords
+}
+
+type IntentAccountSource {
+  accounts: [Account]
+}
+
+input IntentFilters {
+  topics: [String!]
+}
+
+extend type TalAccountSource {
+  accountsByIntent(intentFilters: IntentFilters): IntentAccountSource
+}
+
+extend type AttributesAccountSource {
+  accountsByIntent(intentFilters: IntentFilters): IntentAccountSource
+}
+
+type Query {
+  advertisable(eid: String!): Advertisable
+}
