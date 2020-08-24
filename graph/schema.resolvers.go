@@ -14,6 +14,7 @@ import (
 func (r *accountResolver) CompanyAttributes(ctx context.Context, obj *model.Account) (*model.CompanyAttributes, error) {
 	// We already fetched company attributes for the domains in accountsByAttribute but since this is a resolver and not a regular field
 	// we can't assign the value. We need to fetch all the attributes from the Account again
+	// Using a data loader won't work because accountsByAttributes doesn't fetch accounts based on domain keys only, it also uses the datFilters
 	return &model.CompanyAttributes{
 		Industry: "industry1",
 	}, nil
@@ -61,6 +62,7 @@ func (r *talAccountSourceResolver) AccountsByAttributes(ctx context.Context, obj
 
 	// accounts = slargmaAPI.accounts_by_dat(talEID, tagEID, datFilters)
 
+	// accounts already have all company attributes but we can't assign them to the Account type because Accouht.companyAttributes is a resolver
 	// return &model.AttributesAccountSource{
 	// 	Accounts: []*model.Account{
 	// 		[Domain: accounts[0].domain,
