@@ -13,7 +13,8 @@ type AttributesAccountSource struct {
 }
 
 type CompanyAttributes struct {
-	Industry string `json:"industry"`
+	FirstParty FirstPartyCompanyAttributes
+	ThirdParty ThirdPartyCompanyAttributes
 }
 
 type TalAccountSource struct {
@@ -34,4 +35,12 @@ type IntentFilters struct {
 
 type IntentSurgeRecords struct {
 	Topic string `json:"topic"`
+}
+
+type FirstPartyCompanyAttributes struct {
+	Industry string `json:"industry"`
+}
+
+type ThirdPartyCompanyAttributes struct {
+	Employees float64 `json:"employees"`
 }

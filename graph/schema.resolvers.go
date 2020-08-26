@@ -5,28 +5,36 @@ package graph
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/heron-adroll/cdp-example/graph/generated"
 	"github.com/heron-adroll/cdp-example/graph/model"
 )
 
 func (r *accountResolver) CompanyAttributes(ctx context.Context, obj *model.Account) (*model.CompanyAttributes, error) {
-	// We already fetched company attributes for the domains in accountsByAttribute but since this is a resolver and not a regular field
-	// we can't assign the value. We need to fetch all the attributes from the Account again
-	// Using a data loader won't work because accountsByAttributes doesn't fetch accounts based on domain keys only, it also uses the datFilters
+	// check context for map[obj.Domain][companyAttributes][firstParty]|[thirdParty]
 	return &model.CompanyAttributes{
-		Industry: "industry1",
+		FirstParty: model.FirstPartyCompanyAttributes{Industry: "industry1"},
+		ThirdParty: model.ThirdPartyCompanyAttributes{Employees: 10},
 	}, nil
 }
 
 func (r *accountResolver) SurgeRecords(ctx context.Context, obj *model.Account) (*model.IntentSurgeRecords, error) {
+	// check context for map[obj.Domain][surgeRecords]
 	return &model.IntentSurgeRecords{
 		Topic: "topic1",
 	}, nil
 }
 
+func (r *accountResolver) References(ctx context.Context, obj *model.Account) (*model.AccountReferences, error) {
+	// call references service
+	campaign := "campaign1"
+	return &model.AccountReferences{
+		Campaigns: []*string{&campaign},
+	}, nil
+}
+
 func (r *advertisableResolver) Accounts(ctx context.Context, obj *model.Advertisable, talEid *string, tagEid *string) (*model.TalAccountSource, error) {
+	// call slargma and fetch TAL accounts
 	return &model.TalAccountSource{
 		Accounts: []*model.Account{
 			{Domain: "domain1"},
@@ -35,10 +43,10 @@ func (r *advertisableResolver) Accounts(ctx context.Context, obj *model.Advertis
 	}, nil
 }
 
-func (r *attributesAccountSourceResolver) AccountsByIntent(ctx context.Context, obj *model.AttributesAccountSource, intentFilters *model.IntentFilters) (*model.IntentAccountSource, error) {
+func (r *attributesAccountSourceResolver) AccountsByIntent(ctx context.Context, obj *model.AttributesAccountSource, domains *model.DomainsFilter, searchType *string, intentFilters *model.IntentFilters) (*model.IntentAccountSource, error) {
 	var accountsByIntent []*model.Account
 	for _, acc := range obj.Accounts {
-		if acc.Domain == "domain4" {
+		if acc.Domain == "domain2" {
 			accountsByIntent = append(accountsByIntent, acc)
 		}
 	}
@@ -48,38 +56,34 @@ func (r *attributesAccountSourceResolver) AccountsByIntent(ctx context.Context, 
 	}, nil
 }
 
-func (r *intentAccountSourceResolver) AccountsByAttributes(ctx context.Context, obj *model.IntentAccountSource, datFilters *model.DatFilters) (*model.AttributesAccountSource, error) {
-	panic(fmt.Errorf("not implemented"))
+func (r *intentAccountSourceResolver) AccountsByAttributes(ctx context.Context, obj *model.IntentAccountSource, domains *model.DomainsFilter, searchType *string, firstPartyFilters *model.FirstPartyFilters, thirdPartyFilters *model.ThirdPartyFilters) (*model.AttributesAccountSource, error) {
+	accounts := []*model.Account{}
+	for _, acc := range obj.Accounts {
+		if acc.Domain == "domain1" {
+			accounts = append(accounts, acc)
+		}
+	}
+
+	return &model.AttributesAccountSource{
+		Accounts: accounts,
+	}, nil
 }
 
 func (r *queryResolver) Advertisable(ctx context.Context, eid string) (*model.Advertisable, error) {
 	return &model.Advertisable{Eid: "eid"}, nil
 }
 
-func (r *talAccountSourceResolver) AccountsByAttributes(ctx context.Context, obj *model.TalAccountSource, datFilters *model.DatFilters) (*model.AttributesAccountSource, error) {
-	// talEID := "get from obj context"
-	// tagEID := "get from obj context"
-
-	// accounts = slargmaAPI.accounts_by_dat(talEID, tagEID, datFilters)
-
-	// accounts already have all company attributes but we can't assign them to the Account type because Accouht.companyAttributes is a resolver
-	// return &model.AttributesAccountSource{
-	// 	Accounts: []*model.Account{
-	// 		[Domain: accounts[0].domain,
-	// 		[Domain: accounts[1].domain],
-	// 	}
-	// }, nil
-	// check comments on line 15
+func (r *talAccountSourceResolver) AccountsByAttributes(ctx context.Context, obj *model.TalAccountSource, domains *model.DomainsFilter, searchType *string, firstPartyFilters *model.FirstPartyFilters, thirdPartyFilters *model.ThirdPartyFilters) (*model.AttributesAccountSource, error) {
+	accounts := obj.Accounts
 	return &model.AttributesAccountSource{
-		Accounts: []*model.Account{
-			{Domain: "domain3"},
-			{Domain: "domain4"},
-		},
+		Accounts: accounts,
 	}, nil
 }
 
-func (r *talAccountSourceResolver) AccountsByIntent(ctx context.Context, obj *model.TalAccountSource, intentFilters *model.IntentFilters) (*model.IntentAccountSource, error) {
-	panic(fmt.Errorf("not implemented"))
+func (r *talAccountSourceResolver) AccountsByIntent(ctx context.Context, obj *model.TalAccountSource, domains *model.DomainsFilter, searchType *string, intentFilters *model.IntentFilters) (*model.IntentAccountSource, error) {
+	return &model.IntentAccountSource{
+		Accounts: obj.Accounts,
+	}, nil
 }
 
 // Account returns generated.AccountResolver implementation.
@@ -119,6 +123,4 @@ type talAccountSourceResolver struct{ *Resolver }
 //  - When renaming or deleting a resolver the old code will be put in here. You can safely delete
 //    it when you're done.
 //  - You have helper methods in this file. Move them out to keep these resolver files clean.
-func (r *advertisableResolver) AccountsByTal(ctx context.Context, obj *model.Advertisable, talEid *string, tagEid *string) (*model.TalAccountSource, error) {
-	panic(fmt.Errorf("not implemented"))
-}
+type companyAttributesResolver struct{ *Resolver }

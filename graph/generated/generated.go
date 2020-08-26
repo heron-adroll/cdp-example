@@ -50,7 +50,12 @@ type ComplexityRoot struct {
 	Account struct {
 		CompanyAttributes func(childComplexity int) int
 		Domain            func(childComplexity int) int
+		References        func(childComplexity int) int
 		SurgeRecords      func(childComplexity int) int
+	}
+
+	AccountReferences struct {
+		Campaigns func(childComplexity int) int
 	}
 
 	Advertisable struct {
@@ -60,16 +65,21 @@ type ComplexityRoot struct {
 
 	AttributesAccountSource struct {
 		Accounts         func(childComplexity int) int
-		AccountsByIntent func(childComplexity int, intentFilters *model.IntentFilters) int
+		AccountsByIntent func(childComplexity int, domains *model.DomainsFilter, searchType *string, intentFilters *model.IntentFilters) int
 	}
 
 	CompanyAttributes struct {
+		FirstParty func(childComplexity int) int
+		ThirdParty func(childComplexity int) int
+	}
+
+	FirstPartyCompanyAttributes struct {
 		Industry func(childComplexity int) int
 	}
 
 	IntentAccountSource struct {
 		Accounts             func(childComplexity int) int
-		AccountsByAttributes func(childComplexity int, datFilters *model.DatFilters) int
+		AccountsByAttributes func(childComplexity int, domains *model.DomainsFilter, searchType *string, firstPartyFilters *model.FirstPartyFilters, thirdPartyFilters *model.ThirdPartyFilters) int
 	}
 
 	IntentSurgeRecords struct {
@@ -82,30 +92,35 @@ type ComplexityRoot struct {
 
 	TalAccountSource struct {
 		Accounts             func(childComplexity int) int
-		AccountsByAttributes func(childComplexity int, datFilters *model.DatFilters) int
-		AccountsByIntent     func(childComplexity int, intentFilters *model.IntentFilters) int
+		AccountsByAttributes func(childComplexity int, domains *model.DomainsFilter, searchType *string, firstPartyFilters *model.FirstPartyFilters, thirdPartyFilters *model.ThirdPartyFilters) int
+		AccountsByIntent     func(childComplexity int, domains *model.DomainsFilter, searchType *string, intentFilters *model.IntentFilters) int
+	}
+
+	ThirdPartyCompanyAttributes struct {
+		Employees func(childComplexity int) int
 	}
 }
 
 type AccountResolver interface {
 	CompanyAttributes(ctx context.Context, obj *model.Account) (*model.CompanyAttributes, error)
 	SurgeRecords(ctx context.Context, obj *model.Account) (*model.IntentSurgeRecords, error)
+	References(ctx context.Context, obj *model.Account) (*model.AccountReferences, error)
 }
 type AdvertisableResolver interface {
 	Accounts(ctx context.Context, obj *model.Advertisable, talEid *string, tagEid *string) (*model.TalAccountSource, error)
 }
 type AttributesAccountSourceResolver interface {
-	AccountsByIntent(ctx context.Context, obj *model.AttributesAccountSource, intentFilters *model.IntentFilters) (*model.IntentAccountSource, error)
+	AccountsByIntent(ctx context.Context, obj *model.AttributesAccountSource, domains *model.DomainsFilter, searchType *string, intentFilters *model.IntentFilters) (*model.IntentAccountSource, error)
 }
 type IntentAccountSourceResolver interface {
-	AccountsByAttributes(ctx context.Context, obj *model.IntentAccountSource, datFilters *model.DatFilters) (*model.AttributesAccountSource, error)
+	AccountsByAttributes(ctx context.Context, obj *model.IntentAccountSource, domains *model.DomainsFilter, searchType *string, firstPartyFilters *model.FirstPartyFilters, thirdPartyFilters *model.ThirdPartyFilters) (*model.AttributesAccountSource, error)
 }
 type QueryResolver interface {
 	Advertisable(ctx context.Context, eid string) (*model.Advertisable, error)
 }
 type TalAccountSourceResolver interface {
-	AccountsByAttributes(ctx context.Context, obj *model.TalAccountSource, datFilters *model.DatFilters) (*model.AttributesAccountSource, error)
-	AccountsByIntent(ctx context.Context, obj *model.TalAccountSource, intentFilters *model.IntentFilters) (*model.IntentAccountSource, error)
+	AccountsByAttributes(ctx context.Context, obj *model.TalAccountSource, domains *model.DomainsFilter, searchType *string, firstPartyFilters *model.FirstPartyFilters, thirdPartyFilters *model.ThirdPartyFilters) (*model.AttributesAccountSource, error)
+	AccountsByIntent(ctx context.Context, obj *model.TalAccountSource, domains *model.DomainsFilter, searchType *string, intentFilters *model.IntentFilters) (*model.IntentAccountSource, error)
 }
 
 type executableSchema struct {
@@ -137,12 +152,26 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 
 		return e.complexity.Account.Domain(childComplexity), true
 
+	case "Account.references":
+		if e.complexity.Account.References == nil {
+			break
+		}
+
+		return e.complexity.Account.References(childComplexity), true
+
 	case "Account.surgeRecords":
 		if e.complexity.Account.SurgeRecords == nil {
 			break
 		}
 
 		return e.complexity.Account.SurgeRecords(childComplexity), true
+
+	case "AccountReferences.campaigns":
+		if e.complexity.AccountReferences.Campaigns == nil {
+			break
+		}
+
+		return e.complexity.AccountReferences.Campaigns(childComplexity), true
 
 	case "Advertisable.accounts":
 		if e.complexity.Advertisable.Accounts == nil {
@@ -180,14 +209,28 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.AttributesAccountSource.AccountsByIntent(childComplexity, args["intentFilters"].(*model.IntentFilters)), true
+		return e.complexity.AttributesAccountSource.AccountsByIntent(childComplexity, args["domains"].(*model.DomainsFilter), args["searchType"].(*string), args["intentFilters"].(*model.IntentFilters)), true
 
-	case "CompanyAttributes.industry":
-		if e.complexity.CompanyAttributes.Industry == nil {
+	case "CompanyAttributes.firstParty":
+		if e.complexity.CompanyAttributes.FirstParty == nil {
 			break
 		}
 
-		return e.complexity.CompanyAttributes.Industry(childComplexity), true
+		return e.complexity.CompanyAttributes.FirstParty(childComplexity), true
+
+	case "CompanyAttributes.thirdParty":
+		if e.complexity.CompanyAttributes.ThirdParty == nil {
+			break
+		}
+
+		return e.complexity.CompanyAttributes.ThirdParty(childComplexity), true
+
+	case "FirstPartyCompanyAttributes.industry":
+		if e.complexity.FirstPartyCompanyAttributes.Industry == nil {
+			break
+		}
+
+		return e.complexity.FirstPartyCompanyAttributes.Industry(childComplexity), true
 
 	case "IntentAccountSource.accounts":
 		if e.complexity.IntentAccountSource.Accounts == nil {
@@ -206,7 +249,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.IntentAccountSource.AccountsByAttributes(childComplexity, args["datFilters"].(*model.DatFilters)), true
+		return e.complexity.IntentAccountSource.AccountsByAttributes(childComplexity, args["domains"].(*model.DomainsFilter), args["searchType"].(*string), args["firstPartyFilters"].(*model.FirstPartyFilters), args["thirdPartyFilters"].(*model.ThirdPartyFilters)), true
 
 	case "IntentSurgeRecords.topic":
 		if e.complexity.IntentSurgeRecords.Topic == nil {
@@ -244,7 +287,7 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.TalAccountSource.AccountsByAttributes(childComplexity, args["datFilters"].(*model.DatFilters)), true
+		return e.complexity.TalAccountSource.AccountsByAttributes(childComplexity, args["domains"].(*model.DomainsFilter), args["searchType"].(*string), args["firstPartyFilters"].(*model.FirstPartyFilters), args["thirdPartyFilters"].(*model.ThirdPartyFilters)), true
 
 	case "TalAccountSource.accountsByIntent":
 		if e.complexity.TalAccountSource.AccountsByIntent == nil {
@@ -256,7 +299,14 @@ func (e *executableSchema) Complexity(typeName, field string, childComplexity in
 			return 0, false
 		}
 
-		return e.complexity.TalAccountSource.AccountsByIntent(childComplexity, args["intentFilters"].(*model.IntentFilters)), true
+		return e.complexity.TalAccountSource.AccountsByIntent(childComplexity, args["domains"].(*model.DomainsFilter), args["searchType"].(*string), args["intentFilters"].(*model.IntentFilters)), true
+
+	case "ThirdPartyCompanyAttributes.employees":
+		if e.complexity.ThirdPartyCompanyAttributes.Employees == nil {
+			break
+		}
+
+		return e.complexity.ThirdPartyCompanyAttributes.Employees(childComplexity), true
 
 	}
 	return 0, false
@@ -323,8 +373,17 @@ type TalAccountSource {
 }
 
 # CompanyAttributes service
-type CompanyAttributes {
+type FirstPartyCompanyAttributes {
   industry: String
+}
+
+type ThirdPartyCompanyAttributes {
+  employees: Float
+}
+
+type CompanyAttributes {
+  firstParty: FirstPartyCompanyAttributes
+  thirdParty: ThirdPartyCompanyAttributes
 }
 
 extend type Account {
@@ -335,16 +394,25 @@ type AttributesAccountSource {
   accounts: [Account]
 }
 
-input DatFilters {
-  companySize: Float
+input FirstPartyFilters {
+  field: String
+}
+
+input ThirdPartyFilters {
+  field: String
+}
+
+input DomainsFilter {
+  domains: [String!]
+  include: Boolean!
 }
 
 extend type TalAccountSource {
-  accountsByAttributes(datFilters: DatFilters): AttributesAccountSource
+  accountsByAttributes(domains: DomainsFilter,  searchType: String, firstPartyFilters: FirstPartyFilters, thirdPartyFilters: ThirdPartyFilters): AttributesAccountSource
 }
 
 extend type IntentAccountSource {
-  accountsByAttributes(datFilters: DatFilters): AttributesAccountSource
+  accountsByAttributes(domains: DomainsFilter,  searchType: String, firstPartyFilters: FirstPartyFilters, thirdPartyFilters: ThirdPartyFilters): AttributesAccountSource
 }
 
 
@@ -366,15 +434,24 @@ input IntentFilters {
 }
 
 extend type TalAccountSource {
-  accountsByIntent(intentFilters: IntentFilters): IntentAccountSource
+  accountsByIntent(domains: DomainsFilter, searchType: String, intentFilters: IntentFilters): IntentAccountSource
 }
 
 extend type AttributesAccountSource {
-  accountsByIntent(intentFilters: IntentFilters): IntentAccountSource
+  accountsByIntent(domains: DomainsFilter, searchType: String, intentFilters: IntentFilters): IntentAccountSource
 }
 
 type Query {
   advertisable(eid: String!): Advertisable
+}
+
+# Account References Service
+type AccountReferences {
+  campaigns: [String]
+}
+
+extend type Account {
+  references: AccountReferences
 }`, BuiltIn: false},
 }
 var parsedSchema = gqlparser.MustLoadSchema(sources...)
@@ -410,30 +487,75 @@ func (ec *executionContext) field_Advertisable_accounts_args(ctx context.Context
 func (ec *executionContext) field_AttributesAccountSource_accountsByIntent_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	args := map[string]interface{}{}
-	var arg0 *model.IntentFilters
-	if tmp, ok := rawArgs["intentFilters"]; ok {
-		ctx := graphql.WithFieldInputContext(ctx, graphql.NewFieldInputWithField("intentFilters"))
-		arg0, err = ec.unmarshalOIntentFilters2ᚖgithubᚗcomᚋheronᚑadrollᚋcdpᚑexampleᚋgraphᚋmodelᚐIntentFilters(ctx, tmp)
+	var arg0 *model.DomainsFilter
+	if tmp, ok := rawArgs["domains"]; ok {
+		ctx := graphql.WithFieldInputContext(ctx, graphql.NewFieldInputWithField("domains"))
+		arg0, err = ec.unmarshalODomainsFilter2ᚖgithubᚗcomᚋheronᚑadrollᚋcdpᚑexampleᚋgraphᚋmodelᚐDomainsFilter(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
 	}
-	args["intentFilters"] = arg0
+	args["domains"] = arg0
+	var arg1 *string
+	if tmp, ok := rawArgs["searchType"]; ok {
+		ctx := graphql.WithFieldInputContext(ctx, graphql.NewFieldInputWithField("searchType"))
+		arg1, err = ec.unmarshalOString2ᚖstring(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["searchType"] = arg1
+	var arg2 *model.IntentFilters
+	if tmp, ok := rawArgs["intentFilters"]; ok {
+		ctx := graphql.WithFieldInputContext(ctx, graphql.NewFieldInputWithField("intentFilters"))
+		arg2, err = ec.unmarshalOIntentFilters2ᚖgithubᚗcomᚋheronᚑadrollᚋcdpᚑexampleᚋgraphᚋmodelᚐIntentFilters(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["intentFilters"] = arg2
 	return args, nil
 }
 
 func (ec *executionContext) field_IntentAccountSource_accountsByAttributes_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	args := map[string]interface{}{}
-	var arg0 *model.DatFilters
-	if tmp, ok := rawArgs["datFilters"]; ok {
-		ctx := graphql.WithFieldInputContext(ctx, graphql.NewFieldInputWithField("datFilters"))
-		arg0, err = ec.unmarshalODatFilters2ᚖgithubᚗcomᚋheronᚑadrollᚋcdpᚑexampleᚋgraphᚋmodelᚐDatFilters(ctx, tmp)
+	var arg0 *model.DomainsFilter
+	if tmp, ok := rawArgs["domains"]; ok {
+		ctx := graphql.WithFieldInputContext(ctx, graphql.NewFieldInputWithField("domains"))
+		arg0, err = ec.unmarshalODomainsFilter2ᚖgithubᚗcomᚋheronᚑadrollᚋcdpᚑexampleᚋgraphᚋmodelᚐDomainsFilter(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
 	}
-	args["datFilters"] = arg0
+	args["domains"] = arg0
+	var arg1 *string
+	if tmp, ok := rawArgs["searchType"]; ok {
+		ctx := graphql.WithFieldInputContext(ctx, graphql.NewFieldInputWithField("searchType"))
+		arg1, err = ec.unmarshalOString2ᚖstring(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["searchType"] = arg1
+	var arg2 *model.FirstPartyFilters
+	if tmp, ok := rawArgs["firstPartyFilters"]; ok {
+		ctx := graphql.WithFieldInputContext(ctx, graphql.NewFieldInputWithField("firstPartyFilters"))
+		arg2, err = ec.unmarshalOFirstPartyFilters2ᚖgithubᚗcomᚋheronᚑadrollᚋcdpᚑexampleᚋgraphᚋmodelᚐFirstPartyFilters(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["firstPartyFilters"] = arg2
+	var arg3 *model.ThirdPartyFilters
+	if tmp, ok := rawArgs["thirdPartyFilters"]; ok {
+		ctx := graphql.WithFieldInputContext(ctx, graphql.NewFieldInputWithField("thirdPartyFilters"))
+		arg3, err = ec.unmarshalOThirdPartyFilters2ᚖgithubᚗcomᚋheronᚑadrollᚋcdpᚑexampleᚋgraphᚋmodelᚐThirdPartyFilters(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["thirdPartyFilters"] = arg3
 	return args, nil
 }
 
@@ -470,30 +592,75 @@ func (ec *executionContext) field_Query_advertisable_args(ctx context.Context, r
 func (ec *executionContext) field_TalAccountSource_accountsByAttributes_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	args := map[string]interface{}{}
-	var arg0 *model.DatFilters
-	if tmp, ok := rawArgs["datFilters"]; ok {
-		ctx := graphql.WithFieldInputContext(ctx, graphql.NewFieldInputWithField("datFilters"))
-		arg0, err = ec.unmarshalODatFilters2ᚖgithubᚗcomᚋheronᚑadrollᚋcdpᚑexampleᚋgraphᚋmodelᚐDatFilters(ctx, tmp)
+	var arg0 *model.DomainsFilter
+	if tmp, ok := rawArgs["domains"]; ok {
+		ctx := graphql.WithFieldInputContext(ctx, graphql.NewFieldInputWithField("domains"))
+		arg0, err = ec.unmarshalODomainsFilter2ᚖgithubᚗcomᚋheronᚑadrollᚋcdpᚑexampleᚋgraphᚋmodelᚐDomainsFilter(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
 	}
-	args["datFilters"] = arg0
+	args["domains"] = arg0
+	var arg1 *string
+	if tmp, ok := rawArgs["searchType"]; ok {
+		ctx := graphql.WithFieldInputContext(ctx, graphql.NewFieldInputWithField("searchType"))
+		arg1, err = ec.unmarshalOString2ᚖstring(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["searchType"] = arg1
+	var arg2 *model.FirstPartyFilters
+	if tmp, ok := rawArgs["firstPartyFilters"]; ok {
+		ctx := graphql.WithFieldInputContext(ctx, graphql.NewFieldInputWithField("firstPartyFilters"))
+		arg2, err = ec.unmarshalOFirstPartyFilters2ᚖgithubᚗcomᚋheronᚑadrollᚋcdpᚑexampleᚋgraphᚋmodelᚐFirstPartyFilters(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["firstPartyFilters"] = arg2
+	var arg3 *model.ThirdPartyFilters
+	if tmp, ok := rawArgs["thirdPartyFilters"]; ok {
+		ctx := graphql.WithFieldInputContext(ctx, graphql.NewFieldInputWithField("thirdPartyFilters"))
+		arg3, err = ec.unmarshalOThirdPartyFilters2ᚖgithubᚗcomᚋheronᚑadrollᚋcdpᚑexampleᚋgraphᚋmodelᚐThirdPartyFilters(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["thirdPartyFilters"] = arg3
 	return args, nil
 }
 
 func (ec *executionContext) field_TalAccountSource_accountsByIntent_args(ctx context.Context, rawArgs map[string]interface{}) (map[string]interface{}, error) {
 	var err error
 	args := map[string]interface{}{}
-	var arg0 *model.IntentFilters
-	if tmp, ok := rawArgs["intentFilters"]; ok {
-		ctx := graphql.WithFieldInputContext(ctx, graphql.NewFieldInputWithField("intentFilters"))
-		arg0, err = ec.unmarshalOIntentFilters2ᚖgithubᚗcomᚋheronᚑadrollᚋcdpᚑexampleᚋgraphᚋmodelᚐIntentFilters(ctx, tmp)
+	var arg0 *model.DomainsFilter
+	if tmp, ok := rawArgs["domains"]; ok {
+		ctx := graphql.WithFieldInputContext(ctx, graphql.NewFieldInputWithField("domains"))
+		arg0, err = ec.unmarshalODomainsFilter2ᚖgithubᚗcomᚋheronᚑadrollᚋcdpᚑexampleᚋgraphᚋmodelᚐDomainsFilter(ctx, tmp)
 		if err != nil {
 			return nil, err
 		}
 	}
-	args["intentFilters"] = arg0
+	args["domains"] = arg0
+	var arg1 *string
+	if tmp, ok := rawArgs["searchType"]; ok {
+		ctx := graphql.WithFieldInputContext(ctx, graphql.NewFieldInputWithField("searchType"))
+		arg1, err = ec.unmarshalOString2ᚖstring(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["searchType"] = arg1
+	var arg2 *model.IntentFilters
+	if tmp, ok := rawArgs["intentFilters"]; ok {
+		ctx := graphql.WithFieldInputContext(ctx, graphql.NewFieldInputWithField("intentFilters"))
+		arg2, err = ec.unmarshalOIntentFilters2ᚖgithubᚗcomᚋheronᚑadrollᚋcdpᚑexampleᚋgraphᚋmodelᚐIntentFilters(ctx, tmp)
+		if err != nil {
+			return nil, err
+		}
+	}
+	args["intentFilters"] = arg2
 	return args, nil
 }
 
@@ -628,6 +795,68 @@ func (ec *executionContext) _Account_surgeRecords(ctx context.Context, field gra
 	return ec.marshalOIntentSurgeRecords2ᚖgithubᚗcomᚋheronᚑadrollᚋcdpᚑexampleᚋgraphᚋmodelᚐIntentSurgeRecords(ctx, field.Selections, res)
 }
 
+func (ec *executionContext) _Account_references(ctx context.Context, field graphql.CollectedField, obj *model.Account) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "Account",
+		Field:    field,
+		Args:     nil,
+		IsMethod: true,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return ec.resolvers.Account().References(rctx, obj)
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(*model.AccountReferences)
+	fc.Result = res
+	return ec.marshalOAccountReferences2ᚖgithubᚗcomᚋheronᚑadrollᚋcdpᚑexampleᚋgraphᚋmodelᚐAccountReferences(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _AccountReferences_campaigns(ctx context.Context, field graphql.CollectedField, obj *model.AccountReferences) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "AccountReferences",
+		Field:    field,
+		Args:     nil,
+		IsMethod: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Campaigns, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.([]*string)
+	fc.Result = res
+	return ec.marshalOString2ᚕᚖstring(ctx, field.Selections, res)
+}
+
 func (ec *executionContext) _Advertisable_eid(ctx context.Context, field graphql.CollectedField, obj *model.Advertisable) (ret graphql.Marshaler) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -755,7 +984,7 @@ func (ec *executionContext) _AttributesAccountSource_accountsByIntent(ctx contex
 	fc.Args = args
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.AttributesAccountSource().AccountsByIntent(rctx, obj, args["intentFilters"].(*model.IntentFilters))
+		return ec.resolvers.AttributesAccountSource().AccountsByIntent(rctx, obj, args["domains"].(*model.DomainsFilter), args["searchType"].(*string), args["intentFilters"].(*model.IntentFilters))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -769,7 +998,7 @@ func (ec *executionContext) _AttributesAccountSource_accountsByIntent(ctx contex
 	return ec.marshalOIntentAccountSource2ᚖgithubᚗcomᚋheronᚑadrollᚋcdpᚑexampleᚋgraphᚋmodelᚐIntentAccountSource(ctx, field.Selections, res)
 }
 
-func (ec *executionContext) _CompanyAttributes_industry(ctx context.Context, field graphql.CollectedField, obj *model.CompanyAttributes) (ret graphql.Marshaler) {
+func (ec *executionContext) _CompanyAttributes_firstParty(ctx context.Context, field graphql.CollectedField, obj *model.CompanyAttributes) (ret graphql.Marshaler) {
 	defer func() {
 		if r := recover(); r != nil {
 			ec.Error(ctx, ec.Recover(ctx, r))
@@ -778,6 +1007,68 @@ func (ec *executionContext) _CompanyAttributes_industry(ctx context.Context, fie
 	}()
 	fc := &graphql.FieldContext{
 		Object:   "CompanyAttributes",
+		Field:    field,
+		Args:     nil,
+		IsMethod: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.FirstParty, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(model.FirstPartyCompanyAttributes)
+	fc.Result = res
+	return ec.marshalOFirstPartyCompanyAttributes2githubᚗcomᚋheronᚑadrollᚋcdpᚑexampleᚋgraphᚋmodelᚐFirstPartyCompanyAttributes(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _CompanyAttributes_thirdParty(ctx context.Context, field graphql.CollectedField, obj *model.CompanyAttributes) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "CompanyAttributes",
+		Field:    field,
+		Args:     nil,
+		IsMethod: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.ThirdParty, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(model.ThirdPartyCompanyAttributes)
+	fc.Result = res
+	return ec.marshalOThirdPartyCompanyAttributes2githubᚗcomᚋheronᚑadrollᚋcdpᚑexampleᚋgraphᚋmodelᚐThirdPartyCompanyAttributes(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _FirstPartyCompanyAttributes_industry(ctx context.Context, field graphql.CollectedField, obj *model.FirstPartyCompanyAttributes) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "FirstPartyCompanyAttributes",
 		Field:    field,
 		Args:     nil,
 		IsMethod: false,
@@ -855,7 +1146,7 @@ func (ec *executionContext) _IntentAccountSource_accountsByAttributes(ctx contex
 	fc.Args = args
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.IntentAccountSource().AccountsByAttributes(rctx, obj, args["datFilters"].(*model.DatFilters))
+		return ec.resolvers.IntentAccountSource().AccountsByAttributes(rctx, obj, args["domains"].(*model.DomainsFilter), args["searchType"].(*string), args["firstPartyFilters"].(*model.FirstPartyFilters), args["thirdPartyFilters"].(*model.ThirdPartyFilters))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -1062,7 +1353,7 @@ func (ec *executionContext) _TalAccountSource_accountsByAttributes(ctx context.C
 	fc.Args = args
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.TalAccountSource().AccountsByAttributes(rctx, obj, args["datFilters"].(*model.DatFilters))
+		return ec.resolvers.TalAccountSource().AccountsByAttributes(rctx, obj, args["domains"].(*model.DomainsFilter), args["searchType"].(*string), args["firstPartyFilters"].(*model.FirstPartyFilters), args["thirdPartyFilters"].(*model.ThirdPartyFilters))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -1100,7 +1391,7 @@ func (ec *executionContext) _TalAccountSource_accountsByIntent(ctx context.Conte
 	fc.Args = args
 	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
 		ctx = rctx // use context from middleware stack in children
-		return ec.resolvers.TalAccountSource().AccountsByIntent(rctx, obj, args["intentFilters"].(*model.IntentFilters))
+		return ec.resolvers.TalAccountSource().AccountsByIntent(rctx, obj, args["domains"].(*model.DomainsFilter), args["searchType"].(*string), args["intentFilters"].(*model.IntentFilters))
 	})
 	if err != nil {
 		ec.Error(ctx, err)
@@ -1112,6 +1403,37 @@ func (ec *executionContext) _TalAccountSource_accountsByIntent(ctx context.Conte
 	res := resTmp.(*model.IntentAccountSource)
 	fc.Result = res
 	return ec.marshalOIntentAccountSource2ᚖgithubᚗcomᚋheronᚑadrollᚋcdpᚑexampleᚋgraphᚋmodelᚐIntentAccountSource(ctx, field.Selections, res)
+}
+
+func (ec *executionContext) _ThirdPartyCompanyAttributes_employees(ctx context.Context, field graphql.CollectedField, obj *model.ThirdPartyCompanyAttributes) (ret graphql.Marshaler) {
+	defer func() {
+		if r := recover(); r != nil {
+			ec.Error(ctx, ec.Recover(ctx, r))
+			ret = graphql.Null
+		}
+	}()
+	fc := &graphql.FieldContext{
+		Object:   "ThirdPartyCompanyAttributes",
+		Field:    field,
+		Args:     nil,
+		IsMethod: false,
+	}
+
+	ctx = graphql.WithFieldContext(ctx, fc)
+	resTmp, err := ec.ResolverMiddleware(ctx, func(rctx context.Context) (interface{}, error) {
+		ctx = rctx // use context from middleware stack in children
+		return obj.Employees, nil
+	})
+	if err != nil {
+		ec.Error(ctx, err)
+		return graphql.Null
+	}
+	if resTmp == nil {
+		return graphql.Null
+	}
+	res := resTmp.(float64)
+	fc.Result = res
+	return ec.marshalOFloat2float64(ctx, field.Selections, res)
 }
 
 func (ec *executionContext) ___Directive_name(ctx context.Context, field graphql.CollectedField, obj *introspection.Directive) (ret graphql.Marshaler) {
@@ -2169,17 +2491,45 @@ func (ec *executionContext) ___Type_ofType(ctx context.Context, field graphql.Co
 
 // region    **************************** input.gotpl *****************************
 
-func (ec *executionContext) unmarshalInputDatFilters(ctx context.Context, obj interface{}) (model.DatFilters, error) {
-	var it model.DatFilters
+func (ec *executionContext) unmarshalInputDomainsFilter(ctx context.Context, obj interface{}) (model.DomainsFilter, error) {
+	var it model.DomainsFilter
 	var asMap = obj.(map[string]interface{})
 
 	for k, v := range asMap {
 		switch k {
-		case "companySize":
+		case "domains":
 			var err error
 
-			ctx := graphql.WithFieldInputContext(ctx, graphql.NewFieldInputWithField("companySize"))
-			it.CompanySize, err = ec.unmarshalOFloat2float64(ctx, v)
+			ctx := graphql.WithFieldInputContext(ctx, graphql.NewFieldInputWithField("domains"))
+			it.Domains, err = ec.unmarshalOString2ᚕstringᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+		case "include":
+			var err error
+
+			ctx := graphql.WithFieldInputContext(ctx, graphql.NewFieldInputWithField("include"))
+			it.Include, err = ec.unmarshalNBoolean2bool(ctx, v)
+			if err != nil {
+				return it, err
+			}
+		}
+	}
+
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputFirstPartyFilters(ctx context.Context, obj interface{}) (model.FirstPartyFilters, error) {
+	var it model.FirstPartyFilters
+	var asMap = obj.(map[string]interface{})
+
+	for k, v := range asMap {
+		switch k {
+		case "field":
+			var err error
+
+			ctx := graphql.WithFieldInputContext(ctx, graphql.NewFieldInputWithField("field"))
+			it.Field, err = ec.unmarshalOString2ᚖstring(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -2200,6 +2550,26 @@ func (ec *executionContext) unmarshalInputIntentFilters(ctx context.Context, obj
 
 			ctx := graphql.WithFieldInputContext(ctx, graphql.NewFieldInputWithField("topics"))
 			it.Topics, err = ec.unmarshalOString2ᚕstringᚄ(ctx, v)
+			if err != nil {
+				return it, err
+			}
+		}
+	}
+
+	return it, nil
+}
+
+func (ec *executionContext) unmarshalInputThirdPartyFilters(ctx context.Context, obj interface{}) (model.ThirdPartyFilters, error) {
+	var it model.ThirdPartyFilters
+	var asMap = obj.(map[string]interface{})
+
+	for k, v := range asMap {
+		switch k {
+		case "field":
+			var err error
+
+			ctx := graphql.WithFieldInputContext(ctx, graphql.NewFieldInputWithField("field"))
+			it.Field, err = ec.unmarshalOString2ᚖstring(ctx, v)
 			if err != nil {
 				return it, err
 			}
@@ -2252,6 +2622,41 @@ func (ec *executionContext) _Account(ctx context.Context, sel ast.SelectionSet, 
 				res = ec._Account_surgeRecords(ctx, field, obj)
 				return res
 			})
+		case "references":
+			field := field
+			out.Concurrently(i, func() (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Account_references(ctx, field, obj)
+				return res
+			})
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch()
+	if invalids > 0 {
+		return graphql.Null
+	}
+	return out
+}
+
+var accountReferencesImplementors = []string{"AccountReferences"}
+
+func (ec *executionContext) _AccountReferences(ctx context.Context, sel ast.SelectionSet, obj *model.AccountReferences) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, accountReferencesImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	var invalids uint32
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("AccountReferences")
+		case "campaigns":
+			out.Values[i] = ec._AccountReferences_campaigns(ctx, field, obj)
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -2347,8 +2752,34 @@ func (ec *executionContext) _CompanyAttributes(ctx context.Context, sel ast.Sele
 		switch field.Name {
 		case "__typename":
 			out.Values[i] = graphql.MarshalString("CompanyAttributes")
+		case "firstParty":
+			out.Values[i] = ec._CompanyAttributes_firstParty(ctx, field, obj)
+		case "thirdParty":
+			out.Values[i] = ec._CompanyAttributes_thirdParty(ctx, field, obj)
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch()
+	if invalids > 0 {
+		return graphql.Null
+	}
+	return out
+}
+
+var firstPartyCompanyAttributesImplementors = []string{"FirstPartyCompanyAttributes"}
+
+func (ec *executionContext) _FirstPartyCompanyAttributes(ctx context.Context, sel ast.SelectionSet, obj *model.FirstPartyCompanyAttributes) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, firstPartyCompanyAttributesImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	var invalids uint32
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("FirstPartyCompanyAttributes")
 		case "industry":
-			out.Values[i] = ec._CompanyAttributes_industry(ctx, field, obj)
+			out.Values[i] = ec._FirstPartyCompanyAttributes_industry(ctx, field, obj)
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -2495,6 +2926,30 @@ func (ec *executionContext) _TalAccountSource(ctx context.Context, sel ast.Selec
 				res = ec._TalAccountSource_accountsByIntent(ctx, field, obj)
 				return res
 			})
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch()
+	if invalids > 0 {
+		return graphql.Null
+	}
+	return out
+}
+
+var thirdPartyCompanyAttributesImplementors = []string{"ThirdPartyCompanyAttributes"}
+
+func (ec *executionContext) _ThirdPartyCompanyAttributes(ctx context.Context, sel ast.SelectionSet, obj *model.ThirdPartyCompanyAttributes) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, thirdPartyCompanyAttributesImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	var invalids uint32
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("ThirdPartyCompanyAttributes")
+		case "employees":
+			out.Values[i] = ec._ThirdPartyCompanyAttributes_employees(ctx, field, obj)
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -3057,6 +3512,13 @@ func (ec *executionContext) marshalOAccount2ᚖgithubᚗcomᚋheronᚑadrollᚋc
 	return ec._Account(ctx, sel, v)
 }
 
+func (ec *executionContext) marshalOAccountReferences2ᚖgithubᚗcomᚋheronᚑadrollᚋcdpᚑexampleᚋgraphᚋmodelᚐAccountReferences(ctx context.Context, sel ast.SelectionSet, v *model.AccountReferences) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._AccountReferences(ctx, sel, v)
+}
+
 func (ec *executionContext) marshalOAdvertisable2ᚖgithubᚗcomᚋheronᚑadrollᚋcdpᚑexampleᚋgraphᚋmodelᚐAdvertisable(ctx context.Context, sel ast.SelectionSet, v *model.Advertisable) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
@@ -3102,11 +3564,23 @@ func (ec *executionContext) marshalOCompanyAttributes2ᚖgithubᚗcomᚋheronᚑ
 	return ec._CompanyAttributes(ctx, sel, v)
 }
 
-func (ec *executionContext) unmarshalODatFilters2ᚖgithubᚗcomᚋheronᚑadrollᚋcdpᚑexampleᚋgraphᚋmodelᚐDatFilters(ctx context.Context, v interface{}) (*model.DatFilters, error) {
+func (ec *executionContext) unmarshalODomainsFilter2ᚖgithubᚗcomᚋheronᚑadrollᚋcdpᚑexampleᚋgraphᚋmodelᚐDomainsFilter(ctx context.Context, v interface{}) (*model.DomainsFilter, error) {
 	if v == nil {
 		return nil, nil
 	}
-	res, err := ec.unmarshalInputDatFilters(ctx, v)
+	res, err := ec.unmarshalInputDomainsFilter(ctx, v)
+	return &res, graphql.WrapErrorWithInputPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOFirstPartyCompanyAttributes2githubᚗcomᚋheronᚑadrollᚋcdpᚑexampleᚋgraphᚋmodelᚐFirstPartyCompanyAttributes(ctx context.Context, sel ast.SelectionSet, v model.FirstPartyCompanyAttributes) graphql.Marshaler {
+	return ec._FirstPartyCompanyAttributes(ctx, sel, &v)
+}
+
+func (ec *executionContext) unmarshalOFirstPartyFilters2ᚖgithubᚗcomᚋheronᚑadrollᚋcdpᚑexampleᚋgraphᚋmodelᚐFirstPartyFilters(ctx context.Context, v interface{}) (*model.FirstPartyFilters, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputFirstPartyFilters(ctx, v)
 	return &res, graphql.WrapErrorWithInputPath(ctx, err)
 }
 
@@ -3186,6 +3660,42 @@ func (ec *executionContext) marshalOString2ᚕstringᚄ(ctx context.Context, sel
 	return ret
 }
 
+func (ec *executionContext) unmarshalOString2ᚕᚖstring(ctx context.Context, v interface{}) ([]*string, error) {
+	if v == nil {
+		return nil, nil
+	}
+	var vSlice []interface{}
+	if v != nil {
+		if tmp1, ok := v.([]interface{}); ok {
+			vSlice = tmp1
+		} else {
+			vSlice = []interface{}{v}
+		}
+	}
+	var err error
+	res := make([]*string, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithFieldInputContext(ctx, graphql.NewFieldInputWithIndex(i))
+		res[i], err = ec.unmarshalOString2ᚖstring(ctx, vSlice[i])
+		if err != nil {
+			return nil, graphql.WrapErrorWithInputPath(ctx, err)
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) marshalOString2ᚕᚖstring(ctx context.Context, sel ast.SelectionSet, v []*string) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	ret := make(graphql.Array, len(v))
+	for i := range v {
+		ret[i] = ec.marshalOString2ᚖstring(ctx, sel, v[i])
+	}
+
+	return ret
+}
+
 func (ec *executionContext) unmarshalOString2ᚖstring(ctx context.Context, v interface{}) (*string, error) {
 	if v == nil {
 		return nil, nil
@@ -3206,6 +3716,18 @@ func (ec *executionContext) marshalOTalAccountSource2ᚖgithubᚗcomᚋheronᚑa
 		return graphql.Null
 	}
 	return ec._TalAccountSource(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalOThirdPartyCompanyAttributes2githubᚗcomᚋheronᚑadrollᚋcdpᚑexampleᚋgraphᚋmodelᚐThirdPartyCompanyAttributes(ctx context.Context, sel ast.SelectionSet, v model.ThirdPartyCompanyAttributes) graphql.Marshaler {
+	return ec._ThirdPartyCompanyAttributes(ctx, sel, &v)
+}
+
+func (ec *executionContext) unmarshalOThirdPartyFilters2ᚖgithubᚗcomᚋheronᚑadrollᚋcdpᚑexampleᚋgraphᚋmodelᚐThirdPartyFilters(ctx context.Context, v interface{}) (*model.ThirdPartyFilters, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := ec.unmarshalInputThirdPartyFilters(ctx, v)
+	return &res, graphql.WrapErrorWithInputPath(ctx, err)
 }
 
 func (ec *executionContext) marshalO__EnumValue2ᚕgithubᚗcomᚋ99designsᚋgqlgenᚋgraphqlᚋintrospectionᚐEnumValueᚄ(ctx context.Context, sel ast.SelectionSet, v []introspection.EnumValue) graphql.Marshaler {

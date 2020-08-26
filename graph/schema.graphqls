@@ -13,8 +13,17 @@ type TalAccountSource {
 }
 
 # CompanyAttributes service
-type CompanyAttributes {
+type FirstPartyCompanyAttributes {
   industry: String
+}
+
+type ThirdPartyCompanyAttributes {
+  employees: Float
+}
+
+type CompanyAttributes {
+  firstParty: FirstPartyCompanyAttributes
+  thirdParty: ThirdPartyCompanyAttributes
 }
 
 extend type Account {
@@ -25,16 +34,25 @@ type AttributesAccountSource {
   accounts: [Account]
 }
 
-input DatFilters {
-  companySize: Float
+input FirstPartyFilters {
+  field: String
+}
+
+input ThirdPartyFilters {
+  field: String
+}
+
+input DomainsFilter {
+  domains: [String!]
+  include: Boolean!
 }
 
 extend type TalAccountSource {
-  accountsByAttributes(datFilters: DatFilters): AttributesAccountSource
+  accountsByAttributes(domains: DomainsFilter,  searchType: String, firstPartyFilters: FirstPartyFilters, thirdPartyFilters: ThirdPartyFilters): AttributesAccountSource
 }
 
 extend type IntentAccountSource {
-  accountsByAttributes(datFilters: DatFilters): AttributesAccountSource
+  accountsByAttributes(domains: DomainsFilter,  searchType: String, firstPartyFilters: FirstPartyFilters, thirdPartyFilters: ThirdPartyFilters): AttributesAccountSource
 }
 
 
@@ -56,13 +74,22 @@ input IntentFilters {
 }
 
 extend type TalAccountSource {
-  accountsByIntent(intentFilters: IntentFilters): IntentAccountSource
+  accountsByIntent(domains: DomainsFilter, searchType: String, intentFilters: IntentFilters): IntentAccountSource
 }
 
 extend type AttributesAccountSource {
-  accountsByIntent(intentFilters: IntentFilters): IntentAccountSource
+  accountsByIntent(domains: DomainsFilter, searchType: String, intentFilters: IntentFilters): IntentAccountSource
 }
 
 type Query {
   advertisable(eid: String!): Advertisable
+}
+
+# Account References Service
+type AccountReferences {
+  campaigns: [String]
+}
+
+extend type Account {
+  references: AccountReferences
 }
